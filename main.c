@@ -1,9 +1,12 @@
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
 
 /*
   Function Declarations for builtin shell commands:
@@ -11,6 +14,11 @@
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
+int makedir(char **args);
+int touch(char **args);
+int pwd(char ** args);
+int echo(char ** args);
+int lst(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -18,14 +26,26 @@ int lsh_exit(char **args);
 char *builtin_str[] = {
   "cd",
   "help",
-  "exit"
+  "exit",
+  "makedir",
+  "touch",
+  "pwd",
+  "echo",
+  "lst"
 };
 
 int (*builtin_func[]) (char **) = {
   &lsh_cd,
   &lsh_help,
-  &lsh_exit
+  &lsh_exit,
+  &makedir,
+  &touch,
+  &pwd,
+  &echo,
+  &lst
 };
+
+char PWD[1024];	
 
 int lsh_num_builtins() {
   return sizeof(builtin_str) / sizeof(char *);
@@ -34,6 +54,81 @@ int lsh_num_builtins() {
 /*
   Builtin function implementations.
 */
+//mkdr
+int makedir(char **args)
+{
+	if(args[1]==NULL)
+	{
+		fprintf(stderr,"No arguments to execute.");
+	}
+	else{
+	 	if(mkdir(args[1],0755)!=0)
+		{
+			perror("lsh: Can't make directory");
+		}
+		printf(" Directory named %s is made.\n",args[1]);
+        }
+	return 1;
+}
+
+//touch
+int touch(char **args)
+{
+	if (args[1] == NULL)
+        {
+		fprintf(stderr, "No arguments to execute.\n");
+	}
+	else {
+		if (creat(args[1], 0755) != 0) {
+			perror("lsh");
+		}
+	}
+	return 1;
+}
+
+//pwd
+int pwd(char ** args){
+	printf("%s\n", PWD);
+	return 1;
+}
+
+//echo
+int echo(char ** args){
+	int i = 1;
+	while (1){
+		// End of arguments
+		if (args[i] == NULL){
+			break;
+		}
+		printf("%s ", args[i]);
+		i++;
+	}
+	printf("\n");
+}
+//ls
+int lst(char **args)
+{
+        DIR *dir;
+        struct dirent *d;
+        if(args[1]==NULL)
+        {
+                dir=opendir(".");
+        }
+        else
+        {               
+               if((dir=opendir(args[1]))== NULL)
+			   {
+				   printf("Directory does not exist: %s !",args[1]);
+				   return 1;
+			   }
+        }
+         while((d=readdir(dir))!=NULL)
+                {
+                printf("---> %s\n",d->d_name);
+                }
+        closedir(dir);
+        return 1;
+}
 
 /**
    @brief Bultin command: change directory.
@@ -228,6 +323,7 @@ void lsh_loop(void)
   int status;
 
   do {
+    getcwd(PWD, sizeof(PWD));
     printf("> ");
     line = lsh_read_line();
     args = lsh_split_line(line);
